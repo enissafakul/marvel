@@ -1,0 +1,245 @@
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+#include <cctype>
+#include <algorithm>
+#include <vector>
+using namespace std;
+
+// 8 KARAKTER
+string isim[8] = {"Spider-Man", "Iron Man", "Wolverine", "Captain America", "Thor", "Hulk", "Batman", "Superman"};
+int hp_max[8] = {120, 100, 150, 130, 140, 200, 140, 250};
+int saldiri[8] = {25, 30, 20, 22, 28, 35, 24, 40};
+int savunma[8] = {10, 15, 20, 12, 8, 5, 20, 30};
+string super_isim[8] = {"Web Blast!", "Repulsor Beam!", "Claw Fury!", "Shield Bash!", "Lightning Strike!", "SMASH!", "Batarang Storm!", "Heat Vision!"};
+int super_bonus[8] = {15, 20, 12, 14, 30, 50, 25, 45};
+char normal_tus[8] = {'w', 'r', 'c', 's', 'l', 'h', 'b', 's'};
+char super_tus[8] = {'b', 'e', 'f', 'h', 't', 's', 'g', 'h'};
+
+// ASCII ART
+string ascii_art[8] = {
+    " /\\_/\\ \n (o.o)\n > ^ <",     " [===]\n (o o)\n |===|",
+    " /_\\_/\n (o.o)\n /| |\\",     " [===]\n (o o)\n |===|",
+    " /_\\_/\n (O O)\n |===|",     " /~_~\\\n (O O)\n |===|",
+    " /_\\_/\n (o o)\n |===|",     " /_\\_/\n (O O)\n |===|"
+};
+
+// BÜYÜK → küçük
+string to_low(string s) {
+    transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return s;
+}
+
+// İSİMLE SEÇ
+int isimle_sec(string oyuncu) {
+    string input;
+    cout << oyuncu << ", karakter ismini yaz:\n";
+    for (int i = 0; i < 8; i++) {
+        cout << " - " << isim[i] << " (Normal: '" << normal_tus[i] << "', Süper: '" << super_tus[i] << "')\n";
+    }
+    cout << "İsim: ";
+    getline(cin >> ws, input);
+    string low = to_low(input);
+    for (int i = 0; i < 8; i++) {
+        if (to_low(isim[i]).find(low) != string::npos) {
+            cout << " Seçildi: " << isim[i] << "\n\n";
+            return i;
+        }
+    }
+    cout << "Bulunamadı! Hulk seçildi.\n";
+    return 5;
+}
+
+// KARAKTER BUL (isim → index)
+int find_char(string s) {
+    string low = to_low(s);
+    for (int i = 0; i < 8; i++) {
+        if (to_low(isim[i]).find(low) != string::npos) return i;
+    }
+    return -1;
+}
+
+// AI HAMLESİ
+char ai_sec(int id, int hp, bool super_used, int opp_hp, int tur) {
+    if (tur % 3 == 0 && hp < hp_max[id] * 0.5) return 'c';
+    if (!super_used && opp_hp < hp_max[id]) return super_tus[id];
+    return normal_tus[id];
+}
+
+// EFEKTLER
+void ses(string tip) {
+    cout << "\a";
+    if (tip == "punch") cout << " [PUNCH!]\n";
+    if (tip == "super") cout << " [BOOM!]\n";
+    if (tip == "heal")  cout << " [HEAL!]\n";
+}
+
+void saldiri_efekt(string kim, string kime, int dmg, int kalan) {
+    ses("punch");
+    int kime_id = find_char(kime);  // EKLENDİ: find_char
+    cout << "\033[31m " << kim << " → " << kime << " [ -" << dmg << " HP ]\033[0m\n";
+    cout << " \033[32mKalan: " << kalan << "/" << hp_max[kime_id] << "\033[0m\n";
+    cout << " POW! BANG!\n\n";
+}
+
+void super_efekt(string kim, string guc, int dmg, int kalan) {
+    ses("super");
+    int kime_id = find_char(kim);  // kim vuruyor ama kalan can kime ait → düzeltildi
+    string kime = kim == isim[find_char(kim)] ? "rakip" : "sen"; // basit çözüm
+    int kime_id2 = find_char(kime);
+    cout << "\033[33m " << guc << "\n";
+    cout << " EXPLOSION! KABOOM!\n";
+    cout << "\033[31m[ -" << dmg << " HP ] \033[32mKalan: " << kalan << "\033[0m\n\n";
+}
+
+void heal_efekt(string kim, int can, int yeni) {
+    ses("heal");
+    cout << "\033[32m " << kim << " + " << can << " HP! YENİ: " << yeni << "\033[0m\n\n";
+}
+
+// MAÇ (Manuel + AI destekli)
+pair<int, int> mac_oyna(int p1_id, int p2_id, bool ai_mod = false) {
+    int hp1 = hp_max[p1_id], hp2 = hp_max[p2_id];
+    bool super1 = false, super2 = false;
+    int tur = 1;
+
+    while (hp1 > 0 && hp2 > 0) {
+        cout << "\n\033[33mTUR " << tur << "\033[0m | ";
+        cout << "\033[31m" << isim[p1_id] << " [" << hp1 << "]\033[0m vs ";
+        cout << "\033[34m" << isim[p2_id] << " [" << hp2 << "]\033[0m\n\n";
+
+        cout << ascii_art[p1_id] << "     VS     " << ascii_art[p2_id] << "\n\n";
+
+        // OYUNCU 1
+        if (!ai_mod || tur % 2 == 1) {
+            cout << isim[p1_id] << " sırası!\n";
+            cout << "  '" << normal_tus[p1_id] << "' Saldır | '" << super_tus[p1_id] << "' Süper | 'c' Can (3.tur)\n";
+            cout << "Seç: "; char c; cin >> c; c = tolower(c);
+
+            if (c == normal_tus[p1_id]) {
+                int dmg = max(0, saldiri[p1_id] - savunma[p2_id]);
+                hp2 -= dmg; saldiri_efekt(isim[p1_id], isim[p2_id], dmg, hp2);
+            } else if (c == super_tus[p1_id]) {
+                int dmg = max(0, saldiri[p1_id] + super_bonus[p1_id] - savunma[p2_id]);
+                hp2 -= dmg; super_efekt(isim[p1_id], super_isim[p1_id], dmg, hp2); super1 = true;
+            } else if (c == 'c' && tur % 3 == 0) {
+                int can = hp_max[p1_id] * 30 / 100;
+                hp1 = min(hp_max[p1_id], hp1 + can); heal_efekt(isim[p1_id], can, hp1);
+            } else {
+                int dmg = max(0, saldiri[p1_id] - savunma[p2_id]);
+                hp2 -= dmg; saldiri_efekt(isim[p1_id], isim[p2_id], dmg, hp2);
+            }
+        } else {
+            char c = ai_sec(p1_id, hp1, super1, hp2, tur);
+            cout << isim[p1_id] << " (AI): '" << c << "'\n";
+            if (c == normal_tus[p1_id]) {
+                int dmg = max(0, saldiri[p1_id] - savunma[p2_id]);
+                hp2 -= dmg; saldiri_efekt(isim[p1_id], isim[p2_id], dmg, hp2);
+            } else if (c == super_tus[p1_id]) {
+                int dmg = max(0, saldiri[p1_id] + super_bonus[p1_id] - savunma[p2_id]);
+                hp2 -= dmg; super_efekt(isim[p1_id], super_isim[p1_id], dmg, hp2); super1 = true;
+            } else if (c == 'c' && tur % 3 == 0) {
+                int can = hp_max[p1_id] * 30 / 100;
+                hp1 = min(hp_max[p1_id], hp1 + can); heal_efekt(isim[p1_id], can, hp1);
+            }
+        }
+
+        if (hp2 <= 0) break;
+
+        // OYUNCU 2
+        if (!ai_mod || tur % 2 == 0) {
+            cout << isim[p2_id] << " sırası!\n";
+            cout << "  '" << normal_tus[p2_id] << "' Saldır | '" << super_tus[p2_id] << "' Süper | 'c' Can (3.tur)\n";
+            cout << "Seç: "; char c; cin >> c; c = tolower(c);
+
+            if (c == normal_tus[p2_id]) {
+                int dmg = max(0, saldiri[p2_id] - savunma[p1_id]);
+                hp1 -= dmg; saldiri_efekt(isim[p2_id], isim[p1_id], dmg, hp1);
+            } else if (c == super_tus[p2_id]) {
+                int dmg = max(0, saldiri[p2_id] + super_bonus[p2_id] - savunma[p1_id]);
+                hp1 -= dmg; super_efekt(isim[p2_id], super_isim[p2_id], dmg, hp1); super2 = true;
+            } else if (c == 'c' && tur % 3 == 0) {
+                int can = hp_max[p2_id] * 30 / 100;
+                hp2 = min(hp_max[p2_id], hp2 + can); heal_efekt(isim[p2_id], can, hp2);
+            } else {
+                int dmg = max(0, saldiri[p2_id] - savunma[p1_id]);
+                hp1 -= dmg; saldiri_efekt(isim[p2_id], isim[p1_id], dmg, hp1);
+            }
+        } else {
+            char c = ai_sec(p2_id, hp2, super2, hp1, tur);
+            cout << isim[p2_id] << " (AI): '" << c << "'\n";
+            if (c == normal_tus[p2_id]) {
+                int dmg = max(0, saldiri[p2_id] - savunma[p1_id]);
+                hp1 -= dmg; saldiri_efekt(isim[p2_id], isim[p1_id], dmg, hp1);
+            } else if (c == super_tus[p2_id]) {
+                int dmg = max(0, saldiri[p2_id] + super_bonus[p2_id] - savunma[p1_id]);
+                hp1 -= dmg; super_efekt(isim[p2_id], super_isim[p2_id], dmg, hp1); super2 = true;
+            } else if (c == 'c' && tur % 3 == 0) {
+                int can = hp_max[p2_id] * 30 / 100;
+                hp2 = min(hp_max[p2_id], hp2 + can); heal_efekt(isim[p2_id], can, hp2);
+            }
+        }
+
+        tur++;
+        cout << "Devam için ENTER..."; cin.ignore(); cin.get();
+    }
+
+    cout << "\n\033[33mKAZANAN: " << (hp1 > 0 ? isim[p1_id] : isim[p2_id]) << "!\033[0m\n";
+    return hp1 > 0 ? make_pair(p1_id, hp1) : make_pair(p2_id, hp2);
+}
+
+// TURNUVA MODU (Manuel + Karakter Seçimi)
+void turnuva_mod() {
+    vector<int> katilimcilar;
+    cout << "\n\033[33mTURNUVA: 8 KARAKTER SEÇ!\033[0m\n";
+    for (int i = 0; i < 8; i++) {
+        int id = isimle_sec("Katılımcı " + to_string(i+1));
+        katilimcilar.push_back(id);
+    }
+
+    cout << "\n\033[35m=== ÇEYREK FİNAL ===\033[0m\n";
+    vector<int> kazananlar;
+    for (int i = 0; i < 8; i += 2) {
+        cout << "\nMAÇ: " << isim[katilimcilar[i]] << " vs " << isim[katilimcilar[i+1]] << "\n";
+        auto kaz = mac_oyna(katilimcilar[i], katilimcilar[i+1], false);
+        kazananlar.push_back(kaz.first);
+    }
+
+    cout << "\n\033[35m=== YARI FİNAL ===\033[0m\n";
+    vector<int> finalistler;
+    for (int i = 0; i < 4; i += 2) {
+        cout << "\nMAÇ: " << isim[kazananlar[i]] << " vs " << isim[kazananlar[i+1]] << "\n";
+        auto kaz = mac_oyna(kazananlar[i], kazananlar[i+1], false);
+        finalistler.push_back(kaz.first);
+    }
+
+    cout << "\n\033[31m=== FİNAL ===\033[0m\n";
+    auto sampiyon = mac_oyna(finalistler[0], finalistler[1], false);
+    cout << "\n\033[33mTURNUVA ŞAMPİYONU: " << isim[sampiyon.first] << "!\033[0m\n";
+}
+
+int main() {
+    srand(time(0));
+    cout << "\033[33mMARVEL vs DC ARENA\033[0m\n";
+    cout << "1. Tek Maç\n";
+    cout << "2. AI Rakip\n";
+    cout << "3. Turnuva (Manuel)\n";
+    cout << "Seç: ";
+    int mod; cin >> mod; cin.ignore();
+
+    if (mod == 3) {
+        turnuva_mod();
+    } else if (mod == 2) {
+        int p1 = isimle_sec("Sen");
+        int p2 = rand() % 8;
+        while (p2 == p1) p2 = rand() % 8;
+        mac_oyna(p1, p2, true);
+    } else {
+        int p1 = isimle_sec("Oyuncu 1");
+        int p2 = isimle_sec("Oyuncu 2");
+        while (p2 == p1) { cout << "Aynı karakter! Yeniden seç: "; p2 = isimle_sec("Oyuncu 2"); }
+        mac_oyna(p1, p2, false);
+    }
+
+    return 0;
